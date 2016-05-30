@@ -45,32 +45,33 @@ class WC_CLI_Product_Tag extends WC_CLI_Command {
 	public function update( $args, $assoc_args ) {
 
 		try {
-			// Ensure the term exists before starting.
+			// Ensure the product tag (taxonomy term) exists before starting.
 			$this->assert_term_exists( $args[0] );
 
-			// Load the category (taxonomy term)
-			$term = get_term( $args[0], 'product_cat', ARRAY_A );
-
-			// Merge the CLI arguments with the original term (product category) arguments
+			// Load the product tag (taxonomy term)
+			$term = get_term( $args[0], 'product_tag', ARRAY_A );
+			
+			// Merge the CLI arguments with the original product tag arguments
 			$this->assert_no_wp_error( $term );
 			$updated_term_values = array_merge( $term, $assoc_args );
 			$this->assert_no_wp_error( $term );
 
-			// Update the term (product category)
-			$updated_term = wp_update_term( $term[ 'term_id' ], 'product_cat', $updated_term_values );
+			// Update the product tag
+			$updated_term = wp_update_term( $term[ 'term_id' ], 'product_tag', $updated_term_values );
 			$this->assert_no_wp_error( $updated_term );
 
 			// Filter out the core term values, then use remaining values to update metafields
-			$this->filter_insert_keys_from_assoc_args( $updated_term_values );
-
-			foreach( $updated_term_values as $meta_key => $meta_value ) {
+			$this->filter_insert_keys_from_assoc_args( $assoc_args );
+			
+			// Update metadata
+			foreach( $assoc_args as $meta_key => $meta_value ) {
 				update_term_meta( $updated_term_values[ 'term_id' ], $meta_key, $meta_value );
 			}
 
-			// Reload the category (taxonomy term) to ensure that we're relating about persistent data
-			$term = get_term( $args[0], 'product_cat', ARRAY_A );
+			// Reload the product tag (taxonomy term) to ensure that we're reporting with persistent data
+			$term = get_term( $args[0], 'product_tag', ARRAY_A );
 
-			WP_CLI::success( sprintf( __('Product Category "%s" was updated successfully.', 'woocommerce' ),
+			WP_CLI::success( sprintf( __('Product Tag "%s" was updated successfully.', 'woocommerce' ),
 				$term['name'] ) );
 		}
 		catch ( WC_CLI_Exception $ex ) {
@@ -106,12 +107,27 @@ class WC_CLI_Product_Tag extends WC_CLI_Command {
 	protected function assert_term_exists( $term_id ) {
 
 		// Load the category (taxonomy term)
-		$term = get_term( $term_id, 'product_cat', ARRAY_A );
+		$term = get_term( $term_id, 'product_tag', ARRAY_A );
 
 		if ( ! $term ) {
 
-			throw new WC_CLI_Exception( 'woocommerce_cli_invalid_product_category_id',
-				sprintf( __( 'Invalid product category ID "%s"', 'woocommerce' ), $term_id ) );
+			throw new WC_CLI_Exception( 'woocommerce_cli_invalid_product_tag_id',
+				sprintf( __( 'Invalid product tag ID "%s"', 'woocommerce' ), $term_id ) );
 		}
+	}
+
+	/**
+	 * Pass in the assoc_args array to filter out the key->value pairs which are applied directly to the new term.
+	 * @mutator
+	 *
+	 * @param $assoc_args  The array of associated args to filter
+	 */
+	protected function filter_insert_keys_from_assoc_args( &$assoc_args ) {
+
+		unset( $assoc_args[ 'name' ] );
+		unset( $assoc_args[ 'slug' ] );
+		unset( $assoc_args[ 'parent' ] );
+		unset( $assoc_args[ 'description' ] );
+		unset( $assoc_args[ 'alias_of' ] );
 	}
 }
