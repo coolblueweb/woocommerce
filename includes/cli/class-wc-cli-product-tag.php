@@ -21,9 +21,6 @@ class WC_CLI_Product_Tag extends WC_CLI_Command {
 	 * [--name=<name>]
 	 * : Assign a new name to the tag.
 	 *
-	 * [--parent=<id>]
-	 * : Assign a parent tag using the parent category using the parent category's ID
-	 *
 	 * [--alias_of=<id>]
 	 * : Assign an alias to this tag using the target tag's ID
 	 *
@@ -33,23 +30,17 @@ class WC_CLI_Product_Tag extends WC_CLI_Command {
 	 * [--slug=<string>]
 	 * : Assign a slug for the new tag
 	 *
-	 * [--order=<sortorder>]
-	 * : Assign the sort order of this category, relative to a parent
-	 *
-	 * [--display_type=<value>]
-	 * : Display type for the Product Category.  default, products, subcategories, both
-	 *
 	 * [--<field>=<value>]
 	 * : Assign any number of assocative metadata key=>value pairs.
 	 *
 	 * ## EXAMPLES
 	 *
-	 *     wp wc product category update 75
+	 *     wp wc product tag update 75
 	 *
-	 *     wp wc product category update 75 --name="new_name" --parent=50 --description="New Category Field" --order=2 --slug=new-cat
+	 *     wp wc product tag update 75 --name="new_name" --description="New Category Field" --slug=new-tag-name
 	 *
 	 * @subcommand update
-	 * @since      2.6.0
+	 * @since      2.8.0
 	 */
 	public function update( $args, $assoc_args ) {
 
@@ -85,6 +76,42 @@ class WC_CLI_Product_Tag extends WC_CLI_Command {
 		catch ( WC_CLI_Exception $ex ) {
 
 			WP_CLI::error( $ex->getErrorCode() );
+		}
+	}
+
+	/**
+	 * Ensure that a given term did not error our during loading our processing.  Throws exception if error
+	 * is found.
+	 *
+	 * @pre  The $term must be an associative array to utilize this method.
+	 *
+	 * @param array $term
+	 * @throws WC_CLI_Exception
+	 */
+	protected function assert_no_wp_error( $term ) {
+
+		// Validate the Product Category (term)
+		if( is_object( $term ) && ( 'WP_Error' == get_class( $term ) ) ) {
+			$error = array_pop( $term->errors );
+			throw new WC_CLI_Exception( $error[0], key( $error ) );
+		}
+	}
+
+	/**
+	 * Ensure that a the given term_id is associated with an existing term.  Throws an error if not found.
+	 *
+	 * @param int $term_id
+	 * @throws WC_CLI_Exception
+	 */
+	protected function assert_term_exists( $term_id ) {
+
+		// Load the category (taxonomy term)
+		$term = get_term( $term_id, 'product_cat', ARRAY_A );
+
+		if ( ! $term ) {
+
+			throw new WC_CLI_Exception( 'woocommerce_cli_invalid_product_category_id',
+				sprintf( __( 'Invalid product category ID "%s"', 'woocommerce' ), $term_id ) );
 		}
 	}
 }
