@@ -11,6 +11,100 @@
 class WC_CLI_Product_Tag extends WC_CLI_Command {
 
 	/**
+	 * Get product tag.
+	 *
+	 * ## OPTIONS
+	 *
+	 * <id>
+	 * : Product tag ID.
+	 *
+	 * [--field=<field>]
+	 * : Instead of returning the whole product category fields, returns the value of a single fields.
+	 *
+	 * [--fields=<fields>]
+	 * : Get a specific subset of the product category's fields.
+	 *
+	 * [--format=<format>]
+	 * : Accepted values: table, json, csv. Default: table.
+	 *
+	 * ## AVAILABLE FIELDS
+	 *
+	 * * id
+	 * * name
+	 * * slug
+	 * * description
+	 * * count
+	 *
+	 * ## EXAMPLES
+	 *
+	 *     wp wc product tag get 123
+	 *
+	 * @since 2.5.0
+	 */
+	public function get( $args, $assoc_args ) {
+		try {
+			$product_category = $this->get_product_tag( $args[0] );
+
+			$formatter = $this->get_formatter( $assoc_args );
+			$formatter->display_item( $product_category );
+		} catch ( WC_CLI_Exception $e ) {
+			WP_CLI::error( $e->getMessage() );
+		}
+	}
+
+
+	/**
+	 * List of product tags.
+	 *
+	 * ## OPTIONS
+	 *
+	 * [--<field>=<value>]
+	 * : Filter products based on product property.
+	 *
+	 * [--field=<field>]
+	 * : Prints the value of a single field for each product.
+	 *
+	 * [--fields=<fields>]
+	 * : Limit the output to specific product fields.
+	 *
+	 * [--format=<format>]
+	 * : Acceptec values: table, csv, json, count, ids. Default: table.
+	 *
+	 * ## AVAILABLE FIELDS
+	 *
+	 * * id
+	 * * name
+	 * * slug
+	 * * description
+	 * * count
+	 *
+	 * ## EXAMPLES
+	 *
+	 *     wp wc product tag list
+	 *
+	 *     wp wc product tag list --fields=id,name --format=json
+	 *
+	 * @subcommand list
+	 * @since      2.5.0
+	 */
+	public function list_( $__, $assoc_args ) {
+		try {
+			$product_categories = array();
+			$terms              = get_terms( 'product_tag', array( 'hide_empty' => false, 'fields' => 'ids' ) );
+
+			foreach ( $terms as $term_id ) {
+				$product_categories[] = $this->get_product_tag( $term_id );
+			}
+
+			$formatter = $this->get_formatter( $assoc_args );
+			$formatter->display_items( $product_categories );
+
+		} catch ( WC_CLI_Exception $e ) {
+			WP_CLI::error( $e->getMessage() );
+		}
+	}
+
+	/**
 	 * Update an existing product tag 
 	 *
 	 * ## OPTIONS
@@ -129,5 +223,42 @@ class WC_CLI_Product_Tag extends WC_CLI_Command {
 		unset( $assoc_args[ 'parent' ] );
 		unset( $assoc_args[ 'description' ] );
 		unset( $assoc_args[ 'alias_of' ] );
+	}
+	
+	/**
+	 * Get product tag properties from given term ID.
+	 *
+	 * @since  2.5.0
+	 * @param  int $term_id Product tag term ID
+	 * @return array
+	 * @throws WC_CLI_Exception
+	 */
+	protected function get_product_tag( $term_id ) {
+		$term_id = absint( $term_id );
+		$term    = get_term( $term_id, 'product_tag' );
+
+		if ( is_wp_error( $term ) || is_null( $term ) ) {
+			throw new WC_CLI_Exception( 'woocommerce_cli_invalid_product_tag_id', sprintf( __( 'Invalid product tag ID "%s"', 'woocommerce' ), $term_id ) );
+		}
+
+		$term_id = intval( $term->term_id );
+
+		return array(
+			'id'          => $term_id,
+			'name'        => $term->name,
+			'slug'        => $term->slug,
+			'count'       => intval( $term->count ),
+			'description' => $term->description
+		);
+	}
+
+	/**
+	 * Get default format fields that will be used in `list` and `get` subcommands.
+	 *
+	 * @since  2.5.0
+	 * @return string
+	 */
+	protected function get_default_format_fields() {
+		return 'id,name,slug,description,count';
 	}
 }
